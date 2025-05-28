@@ -1,0 +1,80 @@
+name: Test CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "env1/**"
+      - "env2/**"
+      - "env3/**"
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  filter:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      any_changed: ${{ steps.filter.outputs.any_changed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            env1: 'env1/**'
+            env2: 'env2/**'
+            env3: 'env3/**'
+
+      - id: set-matrix
+        run: |
+          changed_envs=()
+          if [[ "${{ steps.filter.outputs.env1 }}" == "true" ]]; then changed_envs+=("env1"); fi
+          if [[ "${{ steps.filter.outputs.env2 }}" == "true" ]]; then changed_envs+=("env2"); fi
+          if [[ "${{ steps.filter.outputs.env3 }}" == "true" ]]; then changed_envs+=("env3"); fi
+          # Build JSON array for matrix
+          json="["
+          sep=""
+          for env in "${changed_envs[@]}"; do
+            json="${json}${sep}\"$env\""
+            sep=","
+          done
+          json="${json}]"
+          echo "matrix={\"environment\": $json}" >> $GITHUB_OUTPUT
+          # Set any_changed for conditional
+          if [ "${#changed_envs[@]}" -gt 0 ]; then
+            echo "any_changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "any_changed=false" >> $GITHUB_OUTPUT
+          fi
+
+  plan:
+    needs: filter
+    if: needs.filter.outputs.any_changed == 'true'
+    runs-on: azure-infra
+    strategy:
+      matrix: ${{ fromJson(needs.filter.outputs.matrix) }}
+      include:
+        - environment: env1
+          key1: value1
+          key2: value2
+        - environment: env2
+          key1: value3
+          key2: value4
+        - environment: env3
+          key1: value5
+          key2: value6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Test Step
+        run: |
+          echo ${{ matrix.environment }}
+          echo ${{ matrix.key1 }}
+          echo ${{ matrix.key2 }}
