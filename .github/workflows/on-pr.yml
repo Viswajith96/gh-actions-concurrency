@@ -62,6 +62,7 @@ jobs:
     needs: check_changes
     if: needs.check_changes.outputs.any_changed == 'true'
     runs-on: ubuntu-latest
+    name: plan (${{ matrix.environment }})
     strategy:
       matrix: ${{ fromJson(needs.check_changes.outputs.matrix) }}
     steps:
