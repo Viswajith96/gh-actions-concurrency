@@ -14,7 +14,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  filter:
+  check_changes:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -59,11 +59,11 @@ jobs:
           fi
 
   plan:
-    needs: filter
-    if: needs.filter.outputs.any_changed == 'true'
-    runs-on: azure-infra
+    needs: check_changes
+    if: needs.check_changes.outputs.any_changed == 'true'
+    runs-on: ubuntu-latest
     strategy:
-      matrix: ${{ fromJson(needs.filter.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.check_changes.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
         with:
