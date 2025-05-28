@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
-      any_changed: ${{ steps.filter.outputs.any_changed }}
+      any_changed: ${{ steps.set-matrix.outputs.any_changed }}
     steps:
       - uses: actions/checkout@v4
 
@@ -32,21 +32,27 @@ jobs:
 
       - id: set-matrix
         run: |
-          changed_envs=()
-          if [[ "${{ steps.filter.outputs.env1 }}" == "true" ]]; then changed_envs+=("env1"); fi
-          if [[ "${{ steps.filter.outputs.env2 }}" == "true" ]]; then changed_envs+=("env2"); fi
-          if [[ "${{ steps.filter.outputs.env3 }}" == "true" ]]; then changed_envs+=("env3"); fi
-          # Build JSON array for matrix
-          json="["
+          changed_envs_json="["
           sep=""
-          for env in "${changed_envs[@]}"; do
-            json="${json}${sep}\"$env\""
+
+          if [[ "${{ steps.filter.outputs.env1 }}" == "true" ]]; then
+            changed_envs_json="${changed_envs_json}${sep}{\"environment\":\"env1\",\"key1\":\"value1\",\"key2\":\"value2\"}"
             sep=","
-          done
-          json="${json}]"
-          echo "matrix={\"environment\": $json}" >> $GITHUB_OUTPUT
-          # Set any_changed for conditional
-          if [ "${#changed_envs[@]}" -gt 0 ]; then
+          fi
+          if [[ "${{ steps.filter.outputs.env2 }}" == "true" ]]; then
+            changed_envs_json="${changed_envs_json}${sep}{\"environment\":\"env2\",\"key1\":\"value3\",\"key2\":\"value4\"}"
+            sep=","
+          fi
+          if [[ "${{ steps.filter.outputs.env3 }}" == "true" ]]; then
+            changed_envs_json="${changed_envs_json}${sep}{\"environment\":\"env3\",\"key1\":\"value5\",\"key2\":\"value6\"}"
+            sep=","
+          fi
+
+          changed_envs_json="${changed_envs_json}]"
+
+          echo "matrix={\"include\": $changed_envs_json}" >> $GITHUB_OUTPUT
+
+          if [[ "$changed_envs_json" != "[]" ]]; then
             echo "any_changed=true" >> $GITHUB_OUTPUT
           else
             echo "any_changed=false" >> $GITHUB_OUTPUT
@@ -58,16 +64,6 @@ jobs:
     runs-on: azure-infra
     strategy:
       matrix: ${{ fromJson(needs.filter.outputs.matrix) }}
-      include:
-        - environment: env1
-          key1: value1
-          key2: value2
-        - environment: env2
-          key1: value3
-          key2: value4
-        - environment: env3
-          key1: value5
-          key2: value6
     steps:
       - uses: actions/checkout@v4
         with:
@@ -75,6 +71,6 @@ jobs:
 
       - name: Test Step
         run: |
-          echo ${{ matrix.environment }}
-          echo ${{ matrix.key1 }}
-          echo ${{ matrix.key2 }}
+          echo "Environment: ${{ matrix.environment }}"
+          echo "Key1: ${{ matrix.key1 }}"
+          echo "Key2: ${{ matrix.key2 }}"
